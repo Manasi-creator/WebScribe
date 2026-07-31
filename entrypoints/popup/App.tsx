@@ -1,35 +1,51 @@
-import { useState } from 'react';
-import reactLogo from '@/assets/react.svg';
-import wxtLogo from '/wxt.svg';
-import './App.css';
-
-function App() {
-  const [count, setCount] = useState(0);
-
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://wxt.dev" target="_blank">
-          <img src={wxtLogo} className="logo" alt="WXT logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>WXT + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the WXT and React logos to learn more
+    <div
+      style={{
+        width: 320,
+        padding: 20,
+        fontFamily: "Segoe UI, sans-serif",
+      }}
+    >
+      <h2 style={{ marginBottom: 4 }}>📚 WebScribe</h2>
+
+      <p style={{ color: "#666", marginTop: 0 }}>
+        Your Personal Knowledge Layer
       </p>
-    </>
+
+      <hr />
+
+      <p>
+        <strong>Status:</strong> 🟢 Active
+      </p>
+
+      <p>
+        <strong>Database:</strong> Not Initialized
+      </p>
+
+      <button
+        style={{
+          width: "100%",
+          padding: "10px",
+          marginTop: "15px",
+          cursor: "pointer",
+        }}
+        onClick={() => {
+          console.log("Open Dashboard clicked");
+        }}
+      >
+        Open Dashboard
+      </button>
+
+      <p
+        style={{
+          marginTop: 20,
+          fontSize: 12,
+          color: "#777",
+        }}
+      >
+        Version 1.0
+      </p>
+    </div>
   );
 }
-
-export default App;
