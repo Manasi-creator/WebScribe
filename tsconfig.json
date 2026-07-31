@@ -2,6 +2,21 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "allowImportingTsExtensions": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+
+    "baseUrl": "./",
+
+    "paths": {
+      "@/*": ["./*"],
+      "@components/*": ["components/*"],
+      "@database/*": ["database/*"],
+      "@types/*": ["types/*"],
+      "@utils/*": ["utils/*"],
+      "@constants/*": ["constants/*"],
+      "@hooks/*": ["hooks/*"],
+      "@styles/*": ["styles/*"],
+      "@messaging/*": ["messaging/*"],
+      "@ai/*": ["ai/*"]
+    }
   }
 }
