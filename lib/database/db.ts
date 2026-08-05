@@ -1,6 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from "idb";
-import { Highlight } from "../types/highlight";
-import { UserSettings } from "../types/settings";
+import { Highlight } from "../../types/highlight";
+import { UserSettings } from "../../types/settings";
 import { DB_NAME, DB_VERSION, STORES } from "./schema";
 
 interface WebScribeDBSchema extends DBSchema {

@@ -1,5 +1,5 @@
 import { initDatabase } from "./db";
-import { Highlight } from "../types/highlight";
+import { Highlight } from "../../types/highlight";
 import { STORES } from "./schema";
 
 export async function saveHighlight(highlight: Highlight) {

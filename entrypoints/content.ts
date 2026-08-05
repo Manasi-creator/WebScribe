@@ -1,6 +1,7 @@
 import { showHighlightToolbar, removeHighlightToolbar } from "../components/highlightToolbar";
 import { renderHighlight } from "../components/highlightRenderer";
-import { saveHighlight } from "../database/highlights";
+import { saveHighlight } from "../lib/database/highlights";
+import { getCurrentSelection } from "../lib/highlight/selection";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -9,19 +10,14 @@ export default defineContentScript({
     console.log("📚 WebScribe Content Script Loaded");
 
     document.addEventListener("mouseup", () => {
-      const selection = window.getSelection();
+      const currentSelection = getCurrentSelection();
 
-      if (!selection) return;
-
-      const text = selection.toString().trim();
-
-      if (!text) {
+      if (!currentSelection) {
         removeHighlightToolbar();
         return;
       }
 
-      const range = selection.getRangeAt(0).cloneRange();
-      const rect = range.getBoundingClientRect();
+      const { text, range, rect } = currentSelection;
 
       showHighlightToolbar(
         rect.left + window.scrollX,
