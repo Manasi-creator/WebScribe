@@ -8,9 +8,9 @@ export interface Highlight {
   highlightedText: string;
 
   anchor: {
+    exact: string;
     prefix: string;
     suffix: string;
-    startOffset: number;
   };
 
   color: string;

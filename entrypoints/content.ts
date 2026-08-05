@@ -2,6 +2,7 @@ import { showHighlightToolbar, removeHighlightToolbar } from "../components/high
 import { renderHighlight } from "../components/highlightRenderer";
 import { saveHighlight } from "../lib/database/highlights";
 import { getCurrentSelection } from "../lib/highlight/selection";
+import { generateAnchor } from "../lib/highlight/anchor";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -23,13 +24,14 @@ export default defineContentScript({
         rect.left + window.scrollX,
         rect.top + window.scrollY - 45,
         async () => {
-          console.log("📒 Highlight button clicked");
 
           const id = crypto.randomUUID();
 
           try {
             // Render highlight on the page
             renderHighlight(range, id);
+
+            const anchor = generateAnchor(text);
 
             // Save highlight to IndexedDB
             await saveHighlight({
@@ -39,11 +41,7 @@ export default defineContentScript({
               pageTitle: document.title,
               highlightedText: text,
 
-              anchor: {
-                prefix: "",
-                suffix: "",
-                startOffset: 0,
-              },
+              anchor: generateAnchor(text),
 
               color: "important",
               note: null,
@@ -54,8 +52,6 @@ export default defineContentScript({
 
               orphaned: false,
             });
-
-            console.log("✅ Highlight Saved");
 
             removeHighlightToolbar();
             window.getSelection()?.removeAllRanges();
