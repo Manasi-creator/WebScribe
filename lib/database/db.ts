@@ -5,9 +5,16 @@ import { DB_NAME, DB_VERSION, STORES } from "./schema";
 
 interface WebScribeDBSchema extends DBSchema {
   highlights: {
-    key: string;
-    value: Highlight;
+  key: string;
+  value: Highlight;
+
+  indexes: {
+    url: string;
+    domain: string;
+    pageTitle: string;
+    lastVisited: number;
   };
+};
 
   settings: {
     key: string;
@@ -24,19 +31,38 @@ export async function initDatabase() {
     DB_NAME,
     DB_VERSION,
     {
-      upgrade(db) {
-        // Highlights Store
+      upgrade(db, oldVersion, newVersion, transaction) {
+
+        let highlightStore;
+
         if (!db.objectStoreNames.contains(STORES.HIGHLIGHTS)) {
-          db.createObjectStore(STORES.HIGHLIGHTS, {
+          highlightStore = db.createObjectStore(STORES.HIGHLIGHTS, {
             keyPath: "id",
           });
+        } else {
+          highlightStore = transaction.objectStore(STORES.HIGHLIGHTS);
         }
 
-        // Settings Store
+        if (!highlightStore.indexNames.contains("url")) {
+          highlightStore.createIndex("url", "url");
+        }
+
+        if (!highlightStore.indexNames.contains("domain")) {
+          highlightStore.createIndex("domain", "domain");
+        }
+
+        if (!highlightStore.indexNames.contains("pageTitle")) {
+          highlightStore.createIndex("pageTitle", "pageTitle");
+        }
+
         if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
           db.createObjectStore(STORES.SETTINGS);
         }
-      },
+
+        if (!highlightStore.indexNames.contains("lastVisited")) {
+          highlightStore.createIndex("lastVisited", "lastVisited");
+        }
+      }
     }
   );
 

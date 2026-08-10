@@ -3,12 +3,24 @@ import { renderHighlight } from "../components/highlightRenderer";
 import { saveHighlight } from "../lib/database/highlights";
 import { getCurrentSelection } from "../lib/highlight/selection";
 import { generateAnchor } from "../lib/highlight/anchor";
+import { restoreHighlights } from "../lib/highlight/restore";
+import { getHighlightsByUrl } from "../lib/database/highlights";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
 
   main() {
     console.log("📚 WebScribe Content Script Loaded");
+
+    (async () => {
+
+      const highlights = await getHighlightsByUrl(
+        window.location.href
+      );
+
+      restoreHighlights(highlights);
+
+    })();
 
     document.addEventListener("mouseup", () => {
       const currentSelection = getCurrentSelection();

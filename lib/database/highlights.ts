@@ -17,14 +17,6 @@ export async function getAllHighlights() {
   return db.getAll(STORES.HIGHLIGHTS);
 }
 
-export async function getHighlightsByUrl(url: string) {
-  const db = await initDatabase();
-
-  const highlights = await db.getAll(STORES.HIGHLIGHTS);
-
-  return highlights.filter(h => h.url === url);
-}
-
 export async function updateHighlight(highlight: Highlight) {
   const db = await initDatabase();
   await db.put(STORES.HIGHLIGHTS, highlight);
@@ -38,11 +30,25 @@ export async function deleteHighlight(id: string) {
 export async function deleteHighlightsByDomain(domain: string) {
   const db = await initDatabase();
 
-  const highlights = await db.getAll(STORES.HIGHLIGHTS);
+  const highlights = await db.getAllFromIndex(
+    STORES.HIGHLIGHTS,
+    "domain",
+    domain
+  );
 
   for (const highlight of highlights) {
     if (highlight.domain === domain) {
       await db.delete(STORES.HIGHLIGHTS, highlight.id);
     }
   }
+}
+
+export async function getHighlightsByUrl(url: string) {
+  const db = await initDatabase();
+
+  return db.getAllFromIndex(
+    STORES.HIGHLIGHTS,
+    "url",
+    url
+  );
 }
