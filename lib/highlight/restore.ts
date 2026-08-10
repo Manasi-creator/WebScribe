@@ -1,5 +1,6 @@
 import { renderHighlight } from "../../components/highlightRenderer";
 import { Highlight } from "../../types/highlight";
+import { handleHighlightClick } from "./interaction";
 
 export function restoreHighlights(highlights: Highlight[]) {
   const walker = document.createTreeWalker(
@@ -30,7 +31,11 @@ export function restoreHighlights(highlights: Highlight[]) {
       range.setStart(textNode, index);
       range.setEnd(textNode, index + target.length);
 
-      renderHighlight(range, highlight.id);
+      renderHighlight(
+        range,
+        highlight.id,
+        handleHighlightClick
+      );
 
       break;
     }

@@ -5,12 +5,44 @@ import { getCurrentSelection } from "../lib/highlight/selection";
 import { generateAnchor } from "../lib/highlight/anchor";
 import { restoreHighlights } from "../lib/highlight/restore";
 import { getHighlightsByUrl } from "../lib/database/highlights";
+import { getHighlightById, updateHighlight } from "../lib/database/highlights";
+import { showNotePopup } from "../components/notePopup";
+import { handleHighlightClick } from "../lib/highlight/interaction";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
 
   main() {
     console.log("📚 WebScribe Content Script Loaded");
+
+    const handleHighlightClick = async (
+      highlightId: string,
+      rect: DOMRect
+    ) => {
+      const highlight = await getHighlightById(highlightId);
+
+      if (!highlight) {
+        console.warn("Highlight not found:", highlightId);
+        return;
+      }
+
+      showNotePopup(
+        rect.left + window.scrollX,
+        rect.bottom + window.scrollY + 8,
+        highlight.note,
+        async (note) => {
+          const updatedHighlight = {
+            ...highlight,
+            note: note || null,
+            updatedAt: Date.now(),
+          };
+
+          await updateHighlight(updatedHighlight);
+
+          console.log("Note saved");
+        }
+      );
+    };
 
     (async () => {
 
@@ -40,12 +72,14 @@ export default defineContentScript({
           const id = crypto.randomUUID();
 
           try {
-            // Render highlight on the page
-            renderHighlight(range, id);
+            renderHighlight(
+              range,
+              id,
+              handleHighlightClick
+            );
 
             const anchor = generateAnchor(text);
 
-            // Save highlight to IndexedDB
             await saveHighlight({
               id,
               url: window.location.href,
