@@ -24,7 +24,9 @@ const HIGHLIGHT_STYLE: Partial<CSSStyleDeclaration> = {
   borderRadius: "3px",
   cursor: "pointer",
   padding: "1px 0",
-  transition: "background-color 0.2s ease",
+  transition: "background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease, filter 0.2s ease",
+  boxShadow: "inset 0 0 0 1px rgba(30, 58, 95, 0.06)",
+  userSelect: "text",
 };
 
 function isValidRange(range: Range): boolean {
@@ -43,9 +45,28 @@ function createHighlightWrapper(
 
   wrapper.className = HIGHLIGHT_CLASS;
   wrapper.dataset.highlightId = id;
+  wrapper.tabIndex = 0;
+  wrapper.setAttribute("role", "button");
+  wrapper.setAttribute("aria-label", "WebScribe highlight");
 
   Object.assign(wrapper.style, HIGHLIGHT_STYLE);
   wrapper.style.backgroundColor = normalizeHighlightColor(color);
+
+  const applyHoverState = (isActive: boolean) => {
+    if (isActive) {
+      wrapper.style.filter = "brightness(0.98) saturate(1.08)";
+      wrapper.style.boxShadow = "inset 0 0 0 1px rgba(30, 58, 95, 0.12), 0 0 0 1px rgba(30, 58, 95, 0.05)";
+      wrapper.style.transform = "translateY(-0.5px)";
+      return;
+    }
+
+    wrapper.style.filter = "none";
+    wrapper.style.boxShadow = "inset 0 0 0 1px rgba(30, 58, 95, 0.06)";
+    wrapper.style.transform = "none";
+  };
+
+  wrapper.addEventListener("mouseenter", () => applyHoverState(true));
+  wrapper.addEventListener("mouseleave", () => applyHoverState(false));
 
   return wrapper;
 }
@@ -222,6 +243,21 @@ export function renderHighlight(
           }
         }
       );
+
+      wrapper.addEventListener("keydown", (event: KeyboardEvent) => {
+        if (event.key !== "Enter" && event.key !== " ") {
+          return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const rect = wrapper.getBoundingClientRect();
+
+        if (onClick) {
+          onClick(id, rect);
+        }
+      });
 
       fragment.appendChild(wrapper);
     }
