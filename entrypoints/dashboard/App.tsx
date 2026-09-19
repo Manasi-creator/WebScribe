@@ -15,6 +15,7 @@ const HIGHLIGHT_COLOR_OPTIONS = [
   { value: "#D1C4E9", label: "🟪", name: "Purple" },
   { value: "#FFE0B2", label: "🟧", name: "Orange" },
 ] as const;
+const WEBSCRIBE_HIGHLIGHT_PARAM = "webscribeHighlight";
 
 function normalizeHighlightColor(color?: string | null) {
   if (typeof color !== "string") {
@@ -135,6 +136,23 @@ export default function App() {
       return matchesSearchQuery(highlight);
     });
   }, [filter, recentHighlights, searchQuery]);
+
+  function openHighlightPage(highlight: Highlight) {
+    if (!highlight?.id || !highlight?.url) {
+      window.open(highlight?.url || "", "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    try {
+      const targetUrl = new URL(highlight.url);
+      targetUrl.searchParams.set(WEBSCRIBE_HIGHLIGHT_PARAM, highlight.id);
+      window.open(targetUrl.toString(), "_blank", "noopener,noreferrer");
+    } catch {
+      const separator = highlight.url.includes("?") ? "&" : "?";
+      const targetUrl = `${highlight.url}${separator}${WEBSCRIBE_HIGHLIGHT_PARAM}=${encodeURIComponent(highlight.id)}`;
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+    }
+  }
 
   async function handleDeleteHighlight(id: string) {
     const confirmed = window.confirm("Delete this highlight?");
@@ -268,7 +286,7 @@ export default function App() {
           <button
             type="button"
             className="action-button secondary"
-            onClick={() => window.open(highlight.url, "_blank", "noopener,noreferrer")}
+            onClick={() => openHighlightPage(highlight)}
           >
             Open Page
           </button>

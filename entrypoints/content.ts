@@ -21,6 +21,7 @@ const VALID_HIGHLIGHT_COLORS = new Set([
   "#D1C4E9",
   "#FFE0B2",
 ]);
+const WEBSCRIBE_HIGHLIGHT_PARAM = "webscribeHighlight";
 
 function normalizeHighlightColor(color?: string | null) {
   if (typeof color !== "string") {
@@ -151,6 +152,67 @@ export default defineContentScript({
       } catch (error) {
         console.error(
           "❌ Failed to restore highlights:",
+          error
+        );
+      }
+    }
+
+    async function restoreRequestedHighlight() {
+      const requestedHighlightId = new URLSearchParams(window.location.search).get(
+        WEBSCRIBE_HIGHLIGHT_PARAM
+      );
+
+      if (!requestedHighlightId) {
+        return;
+      }
+
+      try {
+        const response = await browser.runtime.sendMessage({
+          type: "GET_HIGHLIGHT_BY_ID",
+          id: requestedHighlightId,
+        });
+
+        if (!response?.success) {
+          console.error(
+            "❌ Failed to retrieve requested highlight:",
+            response?.error
+          );
+          return;
+        }
+
+        const highlight = response.highlight;
+
+        if (!highlight) {
+          console.warn(
+            "⚠️ Requested highlight not found:",
+            requestedHighlightId
+          );
+          return;
+        }
+
+        if (highlight.orphaned) {
+          console.warn(
+            "⚠️ Requested highlight is orphaned and cannot be restored:",
+            requestedHighlightId
+          );
+          return;
+        }
+
+        await restoreSingleHighlight(highlight);
+
+        const targetElement = document.querySelector(
+          `[data-highlight-id="${CSS.escape(requestedHighlightId)}"]`
+        ) as HTMLElement | null;
+
+        if (targetElement) {
+          targetElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        }
+      } catch (error) {
+        console.error(
+          "❌ Failed to restore requested highlight:",
           error
         );
       }
@@ -406,6 +468,7 @@ export default defineContentScript({
 
     setTimeout(() => {
       restoreSavedHighlights();
+      restoreRequestedHighlight();
     }, 500);
   },
 });
