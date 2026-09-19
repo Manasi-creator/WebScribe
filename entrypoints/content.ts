@@ -5,8 +5,12 @@ import {
 } from "../components/highlightToolbar";
 import { renderHighlight } from "../components/highlightRenderer";
 import { getCurrentSelection } from "../lib/highlight/selection";
-import { generateAnchor } from "../lib/highlight/anchor";
+import {
+  findAnchorRange,
+  generateAnchor,
+} from "../lib/highlight/anchor";
 import { showNotePopup } from "../components/notePopup";
+import type { Highlight } from "../types/highlight";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -121,7 +125,7 @@ export default defineContentScript({
         );
 
         for (const highlight of highlights) {
-          restoreSingleHighlight(highlight);
+          await restoreSingleHighlight(highlight);
         }
       } catch (error) {
         console.error(
@@ -131,68 +135,91 @@ export default defineContentScript({
       }
     }
 
-    function restoreSingleHighlight(
-      highlight: any
+    async function restoreSingleHighlight(
+      highlight: Highlight
     ) {
       const targetText =
-        highlight.highlightedText;
+        highlight?.highlightedText;
 
       if (!targetText) {
         return;
       }
 
-      const walker =
-        document.createTreeWalker(
-          document.body,
-          NodeFilter.SHOW_TEXT
+      console.log(
+        "🔎 Restoring highlight:",
+        highlight.id
+      );
+
+      const existingHighlight =
+        document.querySelector(
+          `[data-highlight-id="${CSS.escape(highlight.id)}"]`
         );
 
-      let node: Text | null;
+      if (existingHighlight) {
+        return;
+      }
 
-      while (
-        (node =
-          walker.nextNode() as Text | null)
-      ) {
-        const text =
-          node.textContent || "";
+      const anchor =
+        highlight.anchor ?? {
+          exact: targetText,
+          prefix: "",
+          suffix: "",
+        };
 
-        const index =
-          text.indexOf(targetText);
+      const range = findAnchorRange({
+        exact: anchor.exact || targetText,
+        prefix: anchor.prefix || "",
+        suffix: anchor.suffix || "",
+      });
 
-        if (index === -1) {
-          continue;
+      if (!range) {
+        console.warn(
+          "⚠️ Orphaned highlight:",
+          highlight.id
+        );
+
+        if (!highlight.orphaned) {
+          const updateResponse =
+            await browser.runtime.sendMessage({
+              type: "UPDATE_HIGHLIGHT",
+              highlight: {
+                ...highlight,
+                orphaned: true,
+                updatedAt: Date.now(),
+              },
+            });
+
+          if (!updateResponse?.success) {
+            console.error(
+              "❌ Failed to mark highlight orphaned:",
+              updateResponse?.error
+            );
+          }
         }
-
-        const range =
-          document.createRange();
-
-        range.setStart(
-          node,
-          index
-        );
-
-        range.setEnd(
-          node,
-          index + targetText.length
-        );
-
-        renderHighlight(
-          range,
-          highlight.id,
-          handleHighlightClick
-        );
-
-        console.log(
-          "✅ Restored highlight:",
-          targetText
-        );
 
         return;
       }
 
-      console.warn(
-        "⚠️ Could not find highlight text:",
-        targetText
+      renderHighlight(
+        range,
+        highlight.id,
+        handleHighlightClick
+      );
+
+      if (highlight.orphaned) {
+        await browser.runtime.sendMessage({
+          type: "UPDATE_HIGHLIGHT",
+          highlight: {
+            ...highlight,
+            orphaned: false,
+            updatedAt: Date.now(),
+          },
+        });
+      }
+
+      console.log(
+        "✅ Highlight restored:",
+        highlight.id
       );
     }
 
@@ -237,7 +264,7 @@ export default defineContentScript({
               );
 
               const anchor =
-                generateAnchor(text);
+                generateAnchor(text, range);
 
               console.log(
                 "⚓ Generated anchor:",

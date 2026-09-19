@@ -8,6 +8,7 @@ import {
   getHighlightsByUrl,
   getHighlightById,
   updateHighlight,
+  deleteHighlight,
 } from "../lib/database/highlights";
 
 export default defineBackground(async () => {
@@ -126,6 +127,23 @@ export default defineBackground(async () => {
             console.log(
               "📝 Highlight updated:",
               message.highlight.id
+            );
+
+            return {
+              success: true,
+            };
+          }
+
+          // ========================================
+          // DELETE HIGHLIGHT
+          // ========================================
+
+          case "DELETE_HIGHLIGHT": {
+            await deleteHighlight(message.id);
+
+            console.log(
+              "🗑️ Highlight deleted:",
+              message.id
             );
 
             return {
