@@ -1,13 +1,12 @@
-import { showHighlightToolbar, removeHighlightToolbar } from "../components/highlightToolbar";
+import { browser } from "wxt/browser";
+import {
+  showHighlightToolbar,
+  removeHighlightToolbar,
+} from "../components/highlightToolbar";
 import { renderHighlight } from "../components/highlightRenderer";
-import { saveHighlight } from "../lib/database/highlights";
 import { getCurrentSelection } from "../lib/highlight/selection";
 import { generateAnchor } from "../lib/highlight/anchor";
-import { restoreHighlights } from "../lib/highlight/restore";
-import { getHighlightsByUrl } from "../lib/database/highlights";
-import { getHighlightById, updateHighlight } from "../lib/database/highlights";
 import { showNotePopup } from "../components/notePopup";
-import { handleHighlightClick } from "../lib/highlight/interaction";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -19,107 +18,344 @@ export default defineContentScript({
       highlightId: string,
       rect: DOMRect
     ) => {
-      const highlight = await getHighlightById(highlightId);
-
-      if (!highlight) {
-        console.warn("Highlight not found:", highlightId);
-        return;
-      }
-
-      showNotePopup(
-        rect.left + window.scrollX,
-        rect.bottom + window.scrollY + 8,
-        highlight.note,
-        async (note) => {
-          const updatedHighlight = {
-            ...highlight,
-            note: note || null,
-            updatedAt: Date.now(),
-          };
-
-          await updateHighlight(updatedHighlight);
-
-          console.log("Note saved");
-        }
+      console.log(
+        "📝 Opening note popup for:",
+        highlightId
       );
+
+      try {
+        const response =
+          await browser.runtime.sendMessage({
+            type: "GET_HIGHLIGHT_BY_ID",
+            id: highlightId,
+          });
+
+        if (!response?.success) {
+          console.error(
+            "❌ Failed to get highlight:",
+            response?.error
+          );
+          return;
+        }
+
+        const highlight =
+          response.highlight;
+
+        if (!highlight) {
+          console.warn(
+            "⚠️ Highlight not found:",
+            highlightId
+          );
+          return;
+        }
+
+        showNotePopup(
+          rect.left,
+          rect.bottom + 8,
+          highlight.note,
+
+          async (note) => {
+            try {
+              const updatedHighlight = {
+                ...highlight,
+
+                note: note || null,
+
+                updatedAt: Date.now(),
+              };
+
+              const updateResponse =
+                await browser.runtime.sendMessage({
+                  type: "UPDATE_HIGHLIGHT",
+                  highlight: updatedHighlight,
+                });
+
+              if (!updateResponse?.success) {
+                throw new Error(
+                  updateResponse?.error ||
+                    "Failed to update highlight"
+                );
+              }
+
+              console.log(
+                "📝 Note saved"
+              );
+            } catch (error) {
+              console.error(
+                "❌ Failed to save note:",
+                error
+              );
+            }
+          }
+        );
+      } catch (error) {
+        console.error(
+          "❌ Failed to open note popup:",
+          error
+        );
+      }
     };
 
-    (async () => {
+    async function restoreSavedHighlights() {
+      try {
+        const response =
+          await browser.runtime.sendMessage({
+            type: "GET_HIGHLIGHTS_BY_URL",
+            url: window.location.href,
+          });
 
-      const highlights = await getHighlightsByUrl(
-        window.location.href
-      );
+        if (!response?.success) {
+          console.error(
+            "❌ Failed to retrieve highlights:",
+            response?.error
+          );
 
-      restoreHighlights(highlights);
+          return;
+        }
 
-    })();
+        const highlights =
+          response.highlights ?? [];
 
-    document.addEventListener("mouseup", () => {
-      const currentSelection = getCurrentSelection();
+        console.log(
+          `🔄 Restoring ${highlights.length} highlight(s)`
+        );
 
-      if (!currentSelection) {
-        removeHighlightToolbar();
+        for (const highlight of highlights) {
+          restoreSingleHighlight(highlight);
+        }
+      } catch (error) {
+        console.error(
+          "❌ Failed to restore highlights:",
+          error
+        );
+      }
+    }
+
+    function restoreSingleHighlight(
+      highlight: any
+    ) {
+      const targetText =
+        highlight.highlightedText;
+
+      if (!targetText) {
         return;
       }
 
-      const { text, range, rect } = currentSelection;
+      const walker =
+        document.createTreeWalker(
+          document.body,
+          NodeFilter.SHOW_TEXT
+        );
 
-      showHighlightToolbar(
-        rect.left + window.scrollX,
-        rect.top + window.scrollY - 45,
-        async () => {
+      let node: Text | null;
 
-          const id = crypto.randomUUID();
+      while (
+        (node =
+          walker.nextNode() as Text | null)
+      ) {
+        const text =
+          node.textContent || "";
 
-          try {
-            renderHighlight(
-              range,
-              id,
-              handleHighlightClick
+        const index =
+          text.indexOf(targetText);
+
+        if (index === -1) {
+          continue;
+        }
+
+        const range =
+          document.createRange();
+
+        range.setStart(
+          node,
+          index
+        );
+
+        range.setEnd(
+          node,
+          index + targetText.length
+        );
+
+        renderHighlight(
+          range,
+          highlight.id,
+          handleHighlightClick
+        );
+
+        console.log(
+          "✅ Restored highlight:",
+          targetText
+        );
+
+        return;
+      }
+
+      console.warn(
+        "⚠️ Could not find highlight text:",
+        targetText
+      );
+    }
+
+    document.addEventListener(
+      "mouseup",
+      () => {
+        const currentSelection =
+          getCurrentSelection();
+
+        if (!currentSelection) {
+          removeHighlightToolbar();
+          return;
+        }
+
+        const {
+          text,
+          range,
+          rect,
+        } = currentSelection;
+
+        showHighlightToolbar(
+          rect.left +
+            window.scrollX,
+
+          rect.top +
+            window.scrollY -
+            45,
+
+          async () => {
+            console.log(
+              "📒 Highlight button clicked"
             );
 
-            const anchor = generateAnchor(text);
+            const id =
+              crypto.randomUUID();
 
-            await saveHighlight({
-              id,
-              url: window.location.href,
-              domain: window.location.hostname,
-              pageTitle: document.title,
-              highlightedText: text,
+            try {
+              renderHighlight(
+                range,
+                id,
+                handleHighlightClick
+              );
 
-              anchor: generateAnchor(text),
+              const anchor =
+                generateAnchor(text);
 
-              color: "important",
-              note: null,
+              console.log(
+                "⚓ Generated anchor:",
+                anchor
+              );
 
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              lastVisited: Date.now(),
+              const response =
+                await browser.runtime.sendMessage(
+                  {
+                    type:
+                      "SAVE_HIGHLIGHT",
 
-              orphaned: false,
-            });
+                    highlight: {
+                      id,
 
-            removeHighlightToolbar();
-            window.getSelection()?.removeAllRanges();
-          } catch (err) {
-            console.error("❌ Highlight Failed:", err);
+                      url:
+                        window.location.href,
+
+                      domain:
+                        window.location
+                          .hostname,
+
+                      pageTitle:
+                        document.title,
+
+                      highlightedText:
+                        text,
+
+                      anchor: {
+                        exact:
+                          text,
+
+                        prefix:
+                          anchor.prefix,
+
+                        suffix:
+                          anchor.suffix,
+                      },
+
+                      color:
+                        "important",
+
+                      note:
+                        null,
+
+                      createdAt:
+                        Date.now(),
+
+                      updatedAt:
+                        Date.now(),
+
+                      lastVisited:
+                        Date.now(),
+
+                      orphaned:
+                        false,
+                    },
+                  }
+                );
+
+              if (
+                !response?.success
+              ) {
+                throw new Error(
+                  response?.error ||
+                    "Failed to save highlight"
+                );
+              }
+
+              console.log(
+                "✅ Highlight Saved"
+              );
+
+              removeHighlightToolbar();
+
+              window
+                .getSelection()
+                ?.removeAllRanges();
+            } catch (error) {
+              console.error(
+                "❌ Highlight Failed:",
+                error
+              );
+            }
           }
+        );
+      }
+    );
+
+    document.addEventListener(
+      "mousedown",
+      (event) => {
+        const target =
+          event.target as HTMLElement;
+
+        if (
+          target.closest(
+            "#webscribe-toolbar"
+          )
+        ) {
+          return;
         }
-      );
-    });
 
-    document.addEventListener("mousedown", (event) => {
-      const target = event.target as HTMLElement;
+        if (
+          window
+            .getSelection()
+            ?.toString()
+            .trim()
+        ) {
+          return;
+        }
 
-      if (target.closest("#webscribe-toolbar")) {
-        return;
+        removeHighlightToolbar();
       }
+    );
 
-      if (window.getSelection()?.toString().trim()) {
-        return;
-      }
-
-      removeHighlightToolbar();
-    });
+    setTimeout(() => {
+      restoreSavedHighlights();
+    }, 500);
   },
 });

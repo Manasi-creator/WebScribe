@@ -1,4 +1,16 @@
+import { browser } from "wxt/browser";
+
 export default function App() {
+  const openDashboard = async () => {
+    console.log("📊 Opening WebScribe Dashboard");
+
+    const dashboardUrl = browser.runtime.getURL("/dashboard.html");
+
+    await browser.tabs.create({
+      url: dashboardUrl,
+    });
+  };
+
   return (
     <div
       style={{
@@ -24,14 +36,13 @@ export default function App() {
       </p>
 
       <button
+        onClick={openDashboard}
         style={{
           width: "100%",
           padding: "10px",
           marginTop: "15px",
           cursor: "pointer",
-        }}
-        onClick={() => {
-          console.log("Open Dashboard clicked");
+          fontWeight: "600",
         }}
       >
         Open Dashboard
