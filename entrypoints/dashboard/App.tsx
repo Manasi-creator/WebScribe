@@ -40,6 +40,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [activePage, setActivePage] = useState<DashboardPage>("overview");
 
+  const normalizedSearchQuery = searchQuery.trim();
+
   useEffect(() => {
     loadHighlights();
   }, []);
@@ -68,7 +70,7 @@ export default function App() {
   }
 
   const matchesSearchQuery = (highlight: Highlight) => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizedSearchQuery.toLowerCase();
 
     if (!query) return true;
 
@@ -242,8 +244,8 @@ export default function App() {
 
         {highlight.note && (
           <div className="note">
-            <span>📝</span>
-            <span>{highlight.note}</span>
+            <span aria-hidden="true">📝</span>
+            <span className="note-text">{highlight.note}</span>
           </div>
         )}
 
@@ -268,6 +270,7 @@ export default function App() {
                 style={{ backgroundColor: option.value }}
                 title={option.name}
                 aria-label={`Set highlight color to ${option.name}`}
+                aria-pressed={isSelected}
                 onClick={() => handleHighlightColorChange(highlight.id, option.value)}
               >
                 {option.label}
@@ -286,6 +289,7 @@ export default function App() {
           <button
             type="button"
             className="action-button secondary"
+            aria-label={`Open the page for ${highlight.pageTitle}`}
             onClick={() => openHighlightPage(highlight)}
           >
             Open Page
@@ -294,6 +298,7 @@ export default function App() {
           <button
             type="button"
             className="action-button danger"
+            aria-label={`Delete highlight from ${highlight.domain}`}
             onClick={() => handleDeleteHighlight(highlight.id)}
           >
             Delete
@@ -325,7 +330,7 @@ export default function App() {
             onChange={(event) => setSearchQuery(event.target.value)}
           />
 
-          {searchQuery && (
+          {normalizedSearchQuery && (
             <button
               type="button"
               className="search-clear"
@@ -390,13 +395,13 @@ export default function App() {
             <div className="empty-icon">📚</div>
 
             <h3>
-              {searchQuery || filter !== "all"
+              {normalizedSearchQuery || filter !== "all"
                 ? "No matching highlights found."
                 : "No highlights yet. Select text on any webpage to save it."}
             </h3>
 
             <p>
-              {searchQuery || filter !== "all"
+              {normalizedSearchQuery || filter !== "all"
                 ? "Try a different search term or filter."
                 : "Start highlighting useful information on the web and it will appear here."}
             </p>
@@ -432,7 +437,7 @@ export default function App() {
             onChange={(event) => setSearchQuery(event.target.value)}
           />
 
-          {searchQuery && (
+          {normalizedSearchQuery && (
             <button
               type="button"
               className="search-clear"
@@ -494,14 +499,14 @@ export default function App() {
             <h3>
               {filter === "orphaned"
                 ? "No orphaned highlights"
-                : searchQuery || filter !== "all"
+                : normalizedSearchQuery || filter !== "all"
                   ? "No matching highlights found."
                   : "No highlights yet."}
             </h3>
             <p>
               {filter === "orphaned"
                 ? "Highlights that cannot currently be found on their original pages will appear here."
-                : searchQuery || filter !== "all"
+                : normalizedSearchQuery || filter !== "all"
                   ? "Try a different search term or filter."
                   : "Start highlighting useful information on the web and it will appear here."}
             </p>
@@ -553,9 +558,9 @@ export default function App() {
         ) : filteredNotes.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">📝</div>
-            <h3>{searchQuery ? "No matching notes found." : "No notes yet."}</h3>
+            <h3>{normalizedSearchQuery ? "No matching notes found." : "No notes yet."}</h3>
             <p>
-              {searchQuery
+              {normalizedSearchQuery
                 ? "Try a different search term."
                 : "Click a highlight on a webpage to add one."}
             </p>
@@ -646,9 +651,11 @@ export default function App() {
               className={
                 activePage === item.id ? "nav-item active" : "nav-item"
               }
+              aria-current={activePage === item.id ? "page" : undefined}
+              aria-label={item.label}
               onClick={() => setActivePage(item.id)}
             >
-              <span>{item.icon}</span>
+              <span aria-hidden="true">{item.icon}</span>
               <span>{item.label}</span>
             </button>
           ))}

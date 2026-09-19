@@ -39,8 +39,6 @@ export default defineContentScript({
   matches: ["<all_urls>"],
 
   main() {
-    console.log("📚 WebScribe Content Script Loaded");
-
     const unresolvedHighlights = new Set<string>();
     const restoreRetryTimers = new Map<string, number>();
     let restoreDebounceTimer: number | null = null;
@@ -99,11 +97,6 @@ export default defineContentScript({
       highlightId: string,
       rect: DOMRect
     ) => {
-      console.log(
-        "📝 Opening note popup for:",
-        highlightId
-      );
-
       try {
         const response =
           await browser.runtime.sendMessage({
@@ -158,9 +151,6 @@ export default defineContentScript({
                 );
               }
 
-              console.log(
-                "📝 Note saved"
-              );
             } catch (error) {
               console.error(
                 "❌ Failed to save note:",
@@ -196,10 +186,6 @@ export default defineContentScript({
 
         const highlights =
           response.highlights ?? [];
-
-        console.log(
-          `🔄 Restoring ${highlights.length} highlight(s)`
-        );
 
         for (const highlight of highlights) {
           const existingHighlight = document.querySelector(
@@ -312,11 +298,6 @@ export default defineContentScript({
         return false;
       }
 
-      console.log(
-        "🔎 Restoring highlight:",
-        highlight.id
-      );
-
       const existingHighlight =
         document.querySelector(
           `[data-highlight-id="${CSS.escape(highlight.id)}"]`
@@ -385,11 +366,6 @@ export default defineContentScript({
           },
         });
       }
-
-      console.log(
-        "✅ Highlight restored:",
-        highlight.id
-      );
 
       return true;
     }
@@ -500,10 +476,6 @@ export default defineContentScript({
             45,
 
           async () => {
-            console.log(
-              "📒 Highlight button clicked"
-            );
-
             const id =
               crypto.randomUUID();
 
@@ -516,11 +488,6 @@ export default defineContentScript({
 
               const anchor =
                 generateAnchor(text, range);
-
-              console.log(
-                "⚓ Generated anchor:",
-                anchor
-              );
 
               const response =
                 await browser.runtime.sendMessage(

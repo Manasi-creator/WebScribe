@@ -143,8 +143,6 @@ export function renderHighlight(
   ) => void,
   color?: string | null
 ) {
-  console.log("🎨 Rendering highlight:", id);
-
   if (!isValidRange(range)) {
     console.warn(
       "⚠️ Invalid range. Cannot highlight."
@@ -229,16 +227,7 @@ export function renderHighlight(
           const rect =
             wrapper.getBoundingClientRect();
 
-          console.log(
-            "🖱️ Highlight clicked:",
-            id
-          );
-
           if (onClick) {
-            console.log(
-              "📞 Calling note handler..."
-            );
-
             onClick(id, rect);
           }
         }
@@ -274,8 +263,4 @@ export function renderHighlight(
     );
   }
 
-  console.log(
-    "✅ Highlight rendered:",
-    id
-  );
 }
