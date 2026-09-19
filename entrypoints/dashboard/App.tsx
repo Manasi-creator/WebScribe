@@ -6,6 +6,31 @@ import "./style.css";
 type DashboardPage = "overview" | "highlights" | "notes" | "settings";
 type HighlightFilter = "all" | "notes" | "websites" | "orphaned";
 
+const DEFAULT_HIGHLIGHT_COLOR = "#FFF59D";
+const HIGHLIGHT_COLOR_OPTIONS = [
+  { value: "#FFF59D", label: "🟨", name: "Yellow" },
+  { value: "#BBDEFB", label: "🟦", name: "Blue" },
+  { value: "#C8E6C9", label: "🟩", name: "Green" },
+  { value: "#F8BBD0", label: "🩷", name: "Pink" },
+  { value: "#D1C4E9", label: "🟪", name: "Purple" },
+  { value: "#FFE0B2", label: "🟧", name: "Orange" },
+] as const;
+
+function normalizeHighlightColor(color?: string | null) {
+  if (typeof color !== "string") {
+    return DEFAULT_HIGHLIGHT_COLOR;
+  }
+
+  const normalized = color.trim().toUpperCase();
+  const validColors = new Set(
+    HIGHLIGHT_COLOR_OPTIONS.map((option) => option.value.toUpperCase())
+  );
+
+  return validColors.has(normalized)
+    ? normalized
+    : DEFAULT_HIGHLIGHT_COLOR;
+}
+
 export default function App() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -139,11 +164,48 @@ export default function App() {
     }
   }
 
+  async function handleHighlightColorChange(highlightId: string, color: string) {
+    const safeColor = normalizeHighlightColor(color);
+    const targetHighlight = highlights.find((item) => item.id === highlightId);
+
+    if (!targetHighlight) {
+      return;
+    }
+
+    const updatedHighlight = {
+      ...targetHighlight,
+      color: safeColor,
+      updatedAt: Date.now(),
+    };
+
+    setHighlights((current) =>
+      current.map((item) =>
+        item.id === highlightId ? updatedHighlight : item
+      )
+    );
+
+    try {
+      const response = await browser.runtime.sendMessage({
+        type: "UPDATE_HIGHLIGHT",
+        highlight: updatedHighlight,
+      });
+
+      if (!response?.success) {
+        throw new Error(
+          response?.error || "Failed to update highlight color"
+        );
+      }
+    } catch (error) {
+      console.error("Failed to update highlight color:", error);
+      setError("Unable to update highlight color.");
+    }
+  }
+
   const renderHighlightCard = (highlight: Highlight) => (
     <article className="highlight-card" key={highlight.id}>
       <div
         className="highlight-marker"
-        style={{ background: highlight.color || "#fff59d" }}
+        style={{ background: normalizeHighlightColor(highlight.color) }}
       />
 
       <div className="highlight-content">
@@ -172,6 +234,29 @@ export default function App() {
             ⚠️ This highlight could not be restored to its original text.
           </div>
         )}
+
+        <div className="color-picker" aria-label="Highlight color picker">
+          {HIGHLIGHT_COLOR_OPTIONS.map((option) => {
+            const isSelected =
+              normalizeHighlightColor(highlight.color) === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                className={
+                  isSelected ? "color-swatch selected" : "color-swatch"
+                }
+                style={{ backgroundColor: option.value }}
+                title={option.name}
+                aria-label={`Set highlight color to ${option.name}`}
+                onClick={() => handleHighlightColorChange(highlight.id, option.value)}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
 
         <div className="card-footer">
           <span>{highlight.domain}</span>

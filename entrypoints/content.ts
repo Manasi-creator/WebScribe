@@ -12,6 +12,27 @@ import {
 import { showNotePopup } from "../components/notePopup";
 import type { Highlight } from "../types/highlight";
 
+const DEFAULT_HIGHLIGHT_COLOR = "#FFF59D";
+const VALID_HIGHLIGHT_COLORS = new Set([
+  "#FFF59D",
+  "#BBDEFB",
+  "#C8E6C9",
+  "#F8BBD0",
+  "#D1C4E9",
+  "#FFE0B2",
+]);
+
+function normalizeHighlightColor(color?: string | null) {
+  if (typeof color !== "string") {
+    return DEFAULT_HIGHLIGHT_COLOR;
+  }
+
+  const normalized = color.trim().toUpperCase();
+  return VALID_HIGHLIGHT_COLORS.has(normalized)
+    ? normalized
+    : DEFAULT_HIGHLIGHT_COLOR;
+}
+
 export default defineContentScript({
   matches: ["<all_urls>"],
 
@@ -203,7 +224,8 @@ export default defineContentScript({
       renderHighlight(
         range,
         highlight.id,
-        handleHighlightClick
+        handleHighlightClick,
+        normalizeHighlightColor(highlight.color)
       );
 
       if (highlight.orphaned) {
@@ -211,6 +233,7 @@ export default defineContentScript({
           type: "UPDATE_HIGHLIGHT",
           highlight: {
             ...highlight,
+            color: normalizeHighlightColor(highlight.color),
             orphaned: false,
             updatedAt: Date.now(),
           },
@@ -305,7 +328,7 @@ export default defineContentScript({
                       },
 
                       color:
-                        "important",
+                        DEFAULT_HIGHLIGHT_COLOR,
 
                       note:
                         null,

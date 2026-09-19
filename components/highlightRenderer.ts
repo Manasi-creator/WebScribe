@@ -1,7 +1,26 @@
 ﻿const HIGHLIGHT_CLASS = "webscribe-highlight";
+const DEFAULT_HIGHLIGHT_COLOR = "#FFF59D";
+const VALID_HIGHLIGHT_COLORS = new Set([
+  "#FFF59D",
+  "#BBDEFB",
+  "#C8E6C9",
+  "#F8BBD0",
+  "#D1C4E9",
+  "#FFE0B2",
+]);
+
+function normalizeHighlightColor(color?: string | null): string {
+  if (typeof color !== "string") {
+    return DEFAULT_HIGHLIGHT_COLOR;
+  }
+
+  const normalized = color.trim().toUpperCase();
+  return VALID_HIGHLIGHT_COLORS.has(normalized)
+    ? normalized
+    : DEFAULT_HIGHLIGHT_COLOR;
+}
 
 const HIGHLIGHT_STYLE: Partial<CSSStyleDeclaration> = {
-  backgroundColor: "#FFF59D",
   borderRadius: "3px",
   cursor: "pointer",
   padding: "1px 0",
@@ -17,7 +36,8 @@ function isValidRange(range: Range): boolean {
 }
 
 function createHighlightWrapper(
-  id: string
+  id: string,
+  color?: string | null
 ): HTMLSpanElement {
   const wrapper = document.createElement("span");
 
@@ -25,6 +45,7 @@ function createHighlightWrapper(
   wrapper.dataset.highlightId = id;
 
   Object.assign(wrapper.style, HIGHLIGHT_STYLE);
+  wrapper.style.backgroundColor = normalizeHighlightColor(color);
 
   return wrapper;
 }
@@ -98,7 +119,8 @@ export function renderHighlight(
   onClick?: (
     highlightId: string,
     rect: DOMRect
-  ) => void
+  ) => void,
+  color?: string | null
 ) {
   console.log("🎨 Rendering highlight:", id);
 
@@ -174,7 +196,7 @@ export function renderHighlight(
 
     if (selected) {
       const wrapper =
-        createHighlightWrapper(id);
+        createHighlightWrapper(id, color);
 
       wrapper.textContent = selected;
 
