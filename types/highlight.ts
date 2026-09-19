@@ -14,6 +14,7 @@ export interface Highlight {
   };
 
   color: string;
+  tags: string[];
 
   note: string | null;
 

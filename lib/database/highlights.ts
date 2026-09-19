@@ -27,6 +27,15 @@ export async function deleteHighlight(id: string) {
   await db.delete(STORES.HIGHLIGHTS, id);
 }
 
+export async function deleteAllHighlights() {
+  const db = await initDatabase();
+  const highlights = await db.getAll(STORES.HIGHLIGHTS);
+
+  for (const highlight of highlights) {
+    await db.delete(STORES.HIGHLIGHTS, highlight.id);
+  }
+}
+
 export async function deleteHighlightsByDomain(domain: string) {
   const db = await initDatabase();
 
