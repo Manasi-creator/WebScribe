@@ -22,6 +22,7 @@ const VALID_HIGHLIGHT_COLORS = new Set([
   "#FFE0B2",
 ]);
 const WEBSCRIBE_HIGHLIGHT_PARAM = "webscribeHighlight";
+const RESTORE_RETRY_DELAYS = [500, 1500, 3000];
 
 function normalizeHighlightColor(color?: string | null) {
   if (typeof color !== "string") {
@@ -39,6 +40,60 @@ export default defineContentScript({
 
   main() {
     console.log("📚 WebScribe Content Script Loaded");
+
+    const unresolvedHighlights = new Set<string>();
+    const restoreRetryTimers = new Map<string, number>();
+    let restoreDebounceTimer: number | null = null;
+
+    const finalizeUnresolvedHighlight = async (highlight: Highlight) => {
+      if (highlight.orphaned) {
+        return;
+      }
+
+      unresolvedHighlights.delete(highlight.id);
+
+      const updateResponse = await browser.runtime.sendMessage({
+        type: "UPDATE_HIGHLIGHT",
+        highlight: {
+          ...highlight,
+          orphaned: true,
+          updatedAt: Date.now(),
+        },
+      });
+
+      if (!updateResponse?.success) {
+        console.error(
+          "❌ Failed to mark highlight orphaned:",
+          updateResponse?.error
+        );
+      }
+    };
+
+    const scheduleHighlightRetry = (
+      highlight: Highlight,
+      attemptIndex: number
+    ) => {
+      const delay = RESTORE_RETRY_DELAYS[attemptIndex];
+
+      if (delay === undefined) {
+        void finalizeUnresolvedHighlight(highlight);
+        return;
+      }
+
+      const timerId = window.setTimeout(async () => {
+        const restored = await restoreSingleHighlight(highlight, false);
+
+        if (restored) {
+          unresolvedHighlights.delete(highlight.id);
+          restoreRetryTimers.delete(highlight.id);
+          return;
+        }
+
+        scheduleHighlightRetry(highlight, attemptIndex + 1);
+      }, delay);
+
+      restoreRetryTimers.set(highlight.id, timerId);
+    };
 
     const handleHighlightClick = async (
       highlightId: string,
@@ -147,7 +202,26 @@ export default defineContentScript({
         );
 
         for (const highlight of highlights) {
-          await restoreSingleHighlight(highlight);
+          const existingHighlight = document.querySelector(
+            `[data-highlight-id="${CSS.escape(highlight.id)}"]`
+          );
+
+          if (existingHighlight) {
+            unresolvedHighlights.delete(highlight.id);
+            continue;
+          }
+
+          const restored = await restoreSingleHighlight(highlight, false);
+
+          if (restored) {
+            unresolvedHighlights.delete(highlight.id);
+            continue;
+          }
+
+          if (!unresolvedHighlights.has(highlight.id)) {
+            unresolvedHighlights.add(highlight.id);
+            scheduleHighlightRetry(highlight, 0);
+          }
         }
       } catch (error) {
         console.error(
@@ -198,7 +272,16 @@ export default defineContentScript({
           return;
         }
 
-        await restoreSingleHighlight(highlight);
+        const restored = await restoreSingleHighlight(highlight, false);
+
+        if (!restored) {
+          if (!unresolvedHighlights.has(highlight.id)) {
+            unresolvedHighlights.add(highlight.id);
+            scheduleHighlightRetry(highlight, 0);
+          }
+
+          return;
+        }
 
         const targetElement = document.querySelector(
           `[data-highlight-id="${CSS.escape(requestedHighlightId)}"]`
@@ -219,13 +302,14 @@ export default defineContentScript({
     }
 
     async function restoreSingleHighlight(
-      highlight: Highlight
+      highlight: Highlight,
+      shouldMarkOrphaned = true
     ) {
       const targetText =
         highlight?.highlightedText;
 
       if (!targetText) {
-        return;
+        return false;
       }
 
       console.log(
@@ -239,7 +323,7 @@ export default defineContentScript({
         );
 
       if (existingHighlight) {
-        return;
+        return true;
       }
 
       const anchor =
@@ -257,11 +341,11 @@ export default defineContentScript({
 
       if (!range) {
         console.warn(
-          "⚠️ Orphaned highlight:",
+          "⚠️ Could not restore highlight yet:",
           highlight.id
         );
 
-        if (!highlight.orphaned) {
+        if (shouldMarkOrphaned && !highlight.orphaned) {
           const updateResponse =
             await browser.runtime.sendMessage({
               type: "UPDATE_HIGHLIGHT",
@@ -280,7 +364,7 @@ export default defineContentScript({
           }
         }
 
-        return;
+        return false;
       }
 
       renderHighlight(
@@ -306,6 +390,88 @@ export default defineContentScript({
         "✅ Highlight restored:",
         highlight.id
       );
+
+      return true;
+    }
+
+    async function restoreUnresolvedHighlights() {
+      if (unresolvedHighlights.size === 0) {
+        return;
+      }
+
+      const response = await browser.runtime.sendMessage({
+        type: "GET_HIGHLIGHTS_BY_URL",
+        url: window.location.href,
+      });
+
+      if (!response?.success) {
+        return;
+      }
+
+      const highlights = response.highlights ?? [];
+      const pending = highlights.filter((highlight) =>
+        unresolvedHighlights.has(highlight.id)
+      );
+
+      for (const highlight of pending) {
+        const restored = await restoreSingleHighlight(highlight, false);
+
+        if (restored) {
+          unresolvedHighlights.delete(highlight.id);
+          const timerId = restoreRetryTimers.get(highlight.id);
+
+          if (timerId) {
+            window.clearTimeout(timerId);
+            restoreRetryTimers.delete(highlight.id);
+          }
+        }
+      }
+    }
+
+    function scheduleDynamicObservation() {
+      if (!document.body) {
+        return;
+      }
+
+      const observer = new MutationObserver(() => {
+        if (restoreDebounceTimer) {
+          window.clearTimeout(restoreDebounceTimer);
+        }
+
+        restoreDebounceTimer = window.setTimeout(() => {
+          void restoreUnresolvedHighlights();
+        }, 250);
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    function installUrlChangeHooks() {
+      const handleUrlChange = () => {
+        void restoreSavedHighlights();
+        void restoreRequestedHighlight();
+      };
+
+      window.addEventListener("popstate", handleUrlChange);
+
+      const originalPushState = history.pushState.bind(history);
+      history.pushState = (...args) => {
+        const result = originalPushState(...args);
+        window.dispatchEvent(new Event("webscribe:urlchange"));
+        return result;
+      };
+
+      const originalReplaceState = history.replaceState.bind(history);
+      history.replaceState = (...args) => {
+        const result = originalReplaceState(...args);
+        window.dispatchEvent(new Event("webscribe:urlchange"));
+        return result;
+      };
+
+      window.addEventListener("webscribe:urlchange", handleUrlChange);
     }
 
     document.addEventListener(
@@ -470,5 +636,8 @@ export default defineContentScript({
       restoreSavedHighlights();
       restoreRequestedHighlight();
     }, 500);
+
+    scheduleDynamicObservation();
+    installUrlChangeHooks();
   },
 });
