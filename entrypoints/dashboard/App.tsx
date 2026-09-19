@@ -4,7 +4,7 @@ import type { Highlight } from "../../types/highlight";
 import "./style.css";
 
 type DashboardPage = "overview" | "highlights" | "notes" | "settings";
-type HighlightFilter = "all" | "notes" | "websites";
+type HighlightFilter = "all" | "notes" | "websites" | "orphaned";
 
 export default function App() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -67,6 +67,10 @@ export default function App() {
         return Boolean(highlight.domain?.trim()) && matchesSearchQuery(highlight);
       }
 
+      if (filter === "orphaned") {
+        return Boolean(highlight.orphaned) && matchesSearchQuery(highlight);
+      }
+
       return matchesSearchQuery(highlight);
     });
   }, [filter, highlights, searchQuery]);
@@ -97,6 +101,10 @@ export default function App() {
 
       if (filter === "websites") {
         return Boolean(highlight.domain?.trim()) && matchesSearchQuery(highlight);
+      }
+
+      if (filter === "orphaned") {
+        return Boolean(highlight.orphaned) && matchesSearchQuery(highlight);
       }
 
       return matchesSearchQuery(highlight);
@@ -139,6 +147,10 @@ export default function App() {
       />
 
       <div className="highlight-content">
+        {highlight.orphaned && (
+          <div className="orphaned-badge">⚠️ Orphaned</div>
+        )}
+
         <p className="highlight-text">{highlight.highlightedText}</p>
 
         <div className="metadata">
@@ -152,6 +164,12 @@ export default function App() {
           <div className="note">
             <span>📝</span>
             <span>{highlight.note}</span>
+          </div>
+        )}
+
+        {highlight.orphaned && (
+          <div className="orphaned-message">
+            ⚠️ This highlight could not be restored to its original text.
           </div>
         )}
 
@@ -341,6 +359,7 @@ export default function App() {
             { id: "all", label: "All" },
             { id: "notes", label: "Notes" },
             { id: "websites", label: "Websites" },
+            { id: "orphaned", label: "Orphaned" },
           ].map((option) => (
             <button
               key={option.id}
@@ -370,14 +389,18 @@ export default function App() {
           <div className="empty-state">
             <div className="empty-icon">📚</div>
             <h3>
-              {searchQuery || filter !== "all"
-                ? "No matching highlights found."
-                : "No highlights yet."}
+              {filter === "orphaned"
+                ? "No orphaned highlights"
+                : searchQuery || filter !== "all"
+                  ? "No matching highlights found."
+                  : "No highlights yet."}
             </h3>
             <p>
-              {searchQuery || filter !== "all"
-                ? "Try a different search term or filter."
-                : "Start highlighting useful information on the web and it will appear here."}
+              {filter === "orphaned"
+                ? "Highlights that cannot currently be found on their original pages will appear here."
+                : searchQuery || filter !== "all"
+                  ? "Try a different search term or filter."
+                  : "Start highlighting useful information on the web and it will appear here."}
             </p>
           </div>
         ) : (
